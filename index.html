@@ -1,0 +1,672 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121212">
+<title>MyGain Chauffeur Pro - Québec</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+/* Mise en page : une colonne étroite, cartes empilées, chiffres en évidence. Thème sombre taxi (jaune). */
+:root{
+  --bg:#121212; --surface:#1c1c1e; --surface2:#252528; --line:#323236;
+  --fg:#ececee; --muted:#9a9aa2; --accent:#f5c518; --accent-fg:#161616;
+  --good:#3ddc84; --bad:#ff6b6b; --blue:#6cb6ff;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 var(--font);
+  padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.01em}
+h1 span{color:var(--accent)}
+.sub{color:var(--muted);margin:2px 0 0;font-size:13px}
+h2{margin:0 0 12px;font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+h3{margin:16px 0 8px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;min-width:0}
+label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
+input,select,button,textarea{font:inherit;color:var(--fg)}
+input,select{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-height:42px}
+input[type=file]{padding:8px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;min-height:42px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:700}
+button.danger{color:var(--bad)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.row>*{flex:1 1 140px;min-width:0}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns>button{flex:1 1 auto}
+.hint{color:var(--muted);font-size:12.5px;margin:10px 0 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.tile{background:var(--surface2);border-radius:8px;padding:10px 12px;min-width:0}
+.tile small{display:block;color:var(--muted);font-size:12px}
+.tile b{display:block;font-size:18px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tile.hero{grid-column:1/-1;background:var(--accent);color:var(--accent-fg)}
+.tile.hero small{color:#3a3000}
+.tile.hero b{font-size:30px}
+.neg{color:var(--bad)} .pos{color:var(--good)}
+.tile.hero .neg{color:#9b1c1c}
+/* calendrier */
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.cal-head b{text-transform:capitalize}
+.cal-head button{min-width:42px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.cal .dow{font-size:11px;color:var(--muted);text-align:center;padding:2px 0}
+.cal button{padding:0;min-height:40px;border-radius:8px;position:relative;background:var(--surface2);font-variant-numeric:tabular-nums}
+.cal button.blank{visibility:hidden}
+.cal button.inr{background:#4a3f10;border-color:#4a3f10}
+.cal button.edge{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);font-weight:700}
+.cal button.today{border-color:var(--blue)}
+.cal button.has::after{content:"";position:absolute;bottom:4px;left:50%;width:5px;height:5px;margin-left:-2.5px;border-radius:50%;background:var(--good)}
+.cal button.edge.has::after{background:var(--accent-fg)}
+/* graphique + tableaux */
+.chart{display:flex;align-items:flex-end;gap:4px;height:140px;overflow-x:auto;padding-bottom:2px}
+.bar{flex:0 0 28px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;font-size:10px;color:var(--muted)}
+.bar i{display:block;width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px}
+.bar span{margin-top:3px}
+.bar em{font-style:normal;font-size:10px;color:var(--fg);margin-bottom:2px;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:13px}
+th,td{padding:8px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+/* historique */
+.hist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hist li{display:flex;align-items:center;gap:10px;background:var(--surface2);border-radius:8px;padding:10px 12px}
+.hist .main{flex:1;min-width:0}
+.hist .main b{display:block;font-variant-numeric:tabular-nums}
+.hist .main small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.hist button{min-height:36px;padding:6px 10px}
+.empty{color:var(--muted);text-align:center;padding:16px 0}
+.msg{margin-top:10px;font-size:13px;overflow-wrap:anywhere}
+.msg ul{margin:6px 0 0;padding-left:18px;color:var(--bad)}
+textarea{width:100%;min-height:80px;background:var(--surface2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px}
+[hidden]{display:none!important}
+@media print{
+  body{background:#fff;color:#000}
+  section{border-color:#bbb;background:#fff}
+  #sec-params,#sec-cal,#sec-new,#sec-import,#sec-backup,.noprint{display:none!important}
+  .tile{background:#f2f2f2}.tile small{color:#444}.tile.hero{background:#eee;color:#000}
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>My<span>Gain</span> Chauffeur Pro</h1>
+    <p class="sub">Québec • courses, déductions, impôt et rendement horaire</p>
+  </header>
+
+  <section id="sec-params">
+    <h2>⚙️ Paramètres d'impôt</h2>
+    <div class="row">
+      <div><label for="rate">Taux de déduction d'impôt (%)</label><input id="rate" type="number" inputmode="decimal" min="0" max="100" step="0.1"></div>
+      <div><label for="rule">Règle</label>
+        <select id="rule">
+          <option value="cc">Carte et coupon seulement</option>
+          <option value="all">Tous les paiements</option>
+        </select></div>
+    </div>
+    <div style="margin-top:10px"><label for="goal">🎯 Objectif de vrai net par jour travaillé ($)</label><input id="goal" type="number" inputmode="decimal" min="0" step="1"></div>
+    <p class="hint">Le taux s'applique uniquement au montant brut des courses payées par carte ou coupon. Les taxes, la redevance et les frais restent séparés.</p>
+  </section>
+
+  <section id="sec-cal">
+    <h2>📅 Choisir la période</h2>
+    <div class="cal-head">
+      <button id="prev" type="button" aria-label="Mois précédent">‹</button>
+      <b id="monthLabel"></b>
+      <button id="next" type="button" aria-label="Mois suivant">›</button>
+    </div>
+    <div class="cal" id="cal"></div>
+    <div class="row" style="margin-top:12px">
+      <div><label for="ds">Date de début</label><input id="ds" type="date"></div>
+      <div><label for="de">Date de fin</label><input id="de" type="date"></div>
+    </div>
+    <div class="btns" style="margin-top:10px">
+      <button id="calc" class="primary" type="button">🔎 Calculer la période</button>
+      <button id="today" type="button">Aujourd'hui</button>
+      <button id="all" type="button">Toutes les dates</button>
+    </div>
+    <p class="hint">Tu peux entrer directement une période, par exemple du 2 au 5, ou cliquer deux dates dans le calendrier.</p>
+  </section>
+
+  <section id="sec-new">
+    <h2 id="formTitle">➕ Nouvelle entrée</h2>
+    <form id="form" autocomplete="off">
+      <div class="row">
+        <div><label for="type">Type</label>
+          <select id="type"><option value="course">🚖 Course</option><option value="depense">💸 Dépense</option></select></div>
+        <div id="fPay"><label for="pay">Paiement</label>
+          <select id="pay"><option value="cash">💵 Cash</option><option value="carte">💳 Carte</option><option value="coupon">🎟️ Coupon</option></select></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label for="brut" id="brutLabel">Montant brut $</label><input id="brut" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div id="fTip"><label for="tip">Pourboire $</label><input id="tip" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      </div>
+      <div class="row" id="fTax" style="margin-top:10px">
+        <div><label for="tps">TPS à remettre $</label><input id="tps" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div><label for="tvq">TVQ à remettre $</label><input id="tvq" type="number" inputmode="decimal" step="0.01" min="0"></div>
+        <div><label for="red">Redevance à remettre $</label><input id="red" type="number" inputmode="decimal" step="0.01" min="0"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div><label for="edate" id="edateLabel">Date</label><input id="edate" type="date" required></div>
+        <div id="fTime"><label for="etime">Heure de la course</label><input id="etime" type="time"></div>
+        <div id="fCat"><label for="cat">Catégorie de dépense</label>
+          <select id="cat">
+            <option value="essence">⛽ Essence / gaz</option><option value="location">🏠 Location</option>
+            <option value="nourriture">🍔 Nourriture</option><option value="cigarettes">🚬 Cigarettes</option>
+            <option value="lave-auto">🧼 Lave-auto</option><option value="autres">📦 Autres</option>
+          </select></div>
+      </div>
+      <div class="btns" style="margin-top:12px">
+        <button class="primary" type="submit">Enregistrer</button>
+        <button id="cancel" type="button">Annuler</button>
+      </div>
+      <div id="formMsg" class="msg" role="status"></div>
+    </form>
+  </section>
+
+  <section id="sec-res">
+    <h2>📊 Résultat de la période sélectionnée</h2>
+    <p class="sub" id="periodLabel" style="margin:-6px 0 10px"></p>
+    <div class="grid" id="resGrid"></div>
+    <h3>💸 Détail des dépenses</h3>
+    <div class="grid" id="catGrid"></div>
+    <h3>⏱️ $/h brut de la journée</h3>
+    <div class="grid"><div class="tile"><small>Brut + pourboires par heure</small><b id="hourly">—</b></div></div>
+    <p class="hint">Calculé jour par jour, de la première à la dernière course de chaque journée, puis cumulé sur la période. Il faut au moins 2 heures de course enregistrées, sinon « — » s'affiche.</p>
+    <h3>Taxes à remettre</h3>
+    <div class="grid" id="taxGrid"></div>
+  </section>
+
+  <section id="sec-stats">
+    <h2>📈 Statistiques de la période</h2>
+    <div class="grid" id="statGrid"></div>
+    <h3>Brut + pourboires par jour</h3>
+    <div class="chart" id="chart"></div>
+    <h3>Résumé jour par jour</h3>
+    <div class="tw">
+      <table>
+        <thead><tr><th>Jour</th><th>Courses</th><th>Brut + pourb.</th><th>Dépenses</th><th>Vrai net</th><th>$/h</th></tr></thead>
+        <tbody id="dayBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="sec-import">
+    <h2>📥 Importer un fichier de courses</h2>
+    <label for="file">Fichier CSV ou Excel</label>
+    <input id="file" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel">
+    <div class="btns" style="margin-top:10px">
+      <button id="tpl" type="button">⬇️ Modèle CSV</button>
+      <button id="doImport" class="primary" type="button" disabled>Importer les lignes valides</button>
+    </div>
+    <div id="importMsg" class="msg" role="status"></div>
+    <p class="hint">Colonnes reconnues automatiquement : date, heure, montant brut/montant, paiement/mode, pourboire. Les fichiers Excel .xlsx et .xls sont aussi acceptés. Le fichier modèle inclus montre le format exact. Les lignes invalides sont refusées et signalées avant import.</p>
+  </section>
+
+  <section id="sec-backup">
+    <h2>💾 Sauvegarde et export</h2>
+    <p class="hint" style="margin-top:0">Tes données sont gardées uniquement dans ce navigateur. Si tu vides les données du site ou changes de téléphone, elles disparaissent : fais une sauvegarde de temps en temps.</p>
+    <div class="btns" style="margin-top:10px">
+      <button id="bk" type="button">⬇️ Sauvegarde complète</button>
+      <button id="rs" type="button">⬆️ Restaurer</button>
+      <button id="ex" type="button">📄 Exporter la période</button>
+    </div>
+    <input id="rsFile" type="file" accept=".json,application/json" hidden>
+    <div id="bkMsg" class="msg" role="status"></div>
+    <p class="hint">« Sauvegarde complète » = toutes les entrées (fichier .json). « Restaurer » fusionne un fichier de sauvegarde avec tes données sans créer de doublons. « Exporter la période » = fichier CSV pour Excel ou ton comptable.</p>
+  </section>
+
+  <section id="sec-hist">
+    <h2>📋 Historique de la période <button id="print" class="noprint" type="button">🖨️ Imprimer</button></h2>
+    <div class="noprint" style="margin-bottom:10px"><label for="filter">Filtrer l'historique</label>
+      <select id="filter">
+        <option value="all">Tout afficher</option><option value="course">🚖 Courses seulement</option>
+        <option value="depense">💸 Dépenses seulement</option><option value="cash">💵 Cash</option>
+        <option value="carte">💳 Carte</option><option value="coupon">🎟️ Coupon</option>
+      </select></div>
+    <ul class="hist" id="hist"></ul>
+  </section>
+</main>
+
+<script>
+"use strict";
+var $ = function(id){ return document.getElementById(id); };
+var FEE = 0.063;
+var CATS = {essence:"⛽ Essence / gaz",location:"🏠 Location",nourriture:"🍔 Nourriture",cigarettes:"🚬 Cigarettes","lave-auto":"🧼 Lave-auto",autres:"📦 Autres"};
+var PAYS = {cash:"💵 Cash",carte:"💳 Carte",coupon:"🎟️ Coupon"};
+
+/* ---------- stockage ---------- */
+function load(k, d){ try{ var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} }
+var entries = load("mg_entries", []);
+var settings = Object.assign({rate:25, rule:"cc", goal:200}, load("mg_settings", {}));
+
+/* ---------- dates ---------- */
+function pad(n){ return (n<10?"0":"")+n; }
+function ymd(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+function fromYmd(s){ var p = s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function todayStr(){ return ymd(new Date()); }
+function nowTime(){ var d = new Date(); return pad(d.getHours())+":"+pad(d.getMinutes()); }
+function money(n){ return (Math.round(n*100)/100).toFixed(2)+" $"; }
+function fmtDay(s){ return fromYmd(s).toLocaleDateString("fr-CA",{weekday:"short",day:"numeric",month:"short"}); }
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function toMin(t){ if(!t) return null; var m = /^(\d{1,2}):(\d{2})/.exec(t); return m ? (+m[1])*60 + (+m[2]) : null; }
+
+var start = todayStr(), end = todayStr(), pending = false;
+var viewY = new Date().getFullYear(), viewM = new Date().getMonth();
+var editingId = null;
+
+function inPeriod(e){ return e.date >= start && e.date <= end; }
+
+/* ---------- calculs ---------- */
+function compute(list){
+  var rate = settings.rate/100;
+  var R = {brut:0,tips:0,fee:0,tax:0,dep:0,cash:0,carte:0,coupon:0,tps:0,tvq:0,red:0,n:0,cats:{},pay:{cash:0,carte:0,coupon:0},days:{}};
+  list.forEach(function(e){
+    var d = R.days[e.date] || (R.days[e.date] = {date:e.date,n:0,brut:0,tips:0,net:0,dep:0,mins:[]});
+    if(e.type === "depense"){
+      R.dep += e.brut; d.dep += e.brut;
+      R.cats[e.cat] = (R.cats[e.cat]||0) + e.brut;
+      return;
+    }
+    var p = e.pay, b = e.brut, t = e.tip||0;
+    var fee = p !== "cash" ? b*FEE : 0;
+    var base = settings.rule === "all" ? b : (p !== "cash" ? b : 0);
+    var tax = base*rate;
+    var net = b + t - fee - tax;
+    R.n++; R.brut += b; R.tips += t; R.fee += fee; R.tax += tax;
+    R[p] += net; R.pay[p]++;
+    R.tps += e.tps||0; R.tvq += e.tvq||0; R.red += e.red||0;
+    d.n++; d.brut += b; d.tips += t; d.net += net;
+    var m = toMin(e.time); if(m !== null) d.mins.push(m);
+  });
+  var arr = Object.keys(R.days).sort().map(function(k){
+    var d = R.days[k];
+    d.span = d.mins.length > 1 ? (Math.max.apply(null,d.mins) - Math.min.apply(null,d.mins))/60 : 0;
+    d.vrai = d.net - d.dep;
+    return d;
+  });
+  R.list = arr;
+  R.worked = arr.filter(function(d){ return d.n > 0; });
+  R.total = R.cash + R.carte + R.coupon;
+  R.vrai = R.total - R.dep;
+  var spanDays = R.worked.filter(function(d){ return d.span > 0; });
+  R.hours = spanDays.reduce(function(a,d){ return a + d.span; }, 0);
+  var money$ = spanDays.reduce(function(a,d){ return a + d.brut + d.tips; }, 0);
+  R.hourly = R.hours >= 2 ? money$/R.hours : null;
+  return R;
+}
+
+/* ---------- rendu ---------- */
+function tile(label, val, cls, hero){
+  return '<div class="tile'+(hero?' hero':'')+'"><small>'+label+'</small><b class="'+(cls||"")+'">'+val+'</b></div>';
+}
+function render(){
+  $("rate").value = settings.rate; $("rule").value = settings.rule; $("goal").value = settings.goal;
+  $("ds").value = start; $("de").value = end;
+  $("periodLabel").textContent = start === end ? fmtDay(start) : "Du "+fmtDay(start)+" au "+fmtDay(end);
+  renderCal();
+  var list = entries.filter(inPeriod);
+  var R = compute(list);
+
+  var goalPct = (settings.goal > 0 && R.worked.length) ? Math.round(R.vrai/(settings.goal*R.worked.length)*100) : 0;
+  $("resGrid").innerHTML =
+    tile("Brut courses", money(R.brut)) + tile("Pourboires", money(R.tips)) +
+    tile("6,3 % frais carte/coupon", money(R.fee)) + tile("Impôt estimé", money(R.tax)) +
+    tile("Dépenses", money(R.dep)) + tile("Brut + pourboires", money(R.brut+R.tips)) +
+    tile("💵 NET CASH", money(R.cash)) + tile("💳 NET CARTES", money(R.carte)) +
+    tile("🎟️ NET COUPONS", money(R.coupon)) + tile("💰 NET TOTAL", money(R.total)) +
+    tile("🔥 VRAI NET APRÈS DÉPENSES", money(R.vrai), R.vrai<0?"neg":"", true) +
+    tile("🎯 Objectif", goalPct+" %", goalPct>=100?"pos":"");
+  $("catGrid").innerHTML = Object.keys(CATS).map(function(k){ return tile(CATS[k], money(R.cats[k]||0)); }).join("");
+  $("hourly").textContent = R.hourly === null ? "—" : R.hourly.toFixed(2)+" $/h";
+  $("taxGrid").innerHTML = tile("TPS à remettre", money(R.tps)) + tile("TVQ à remettre", money(R.tvq)) + tile("Redevance à remettre", money(R.red));
+
+  var best = null;
+  R.worked.forEach(function(d){ if(!best || d.vrai > best.vrai) best = d; });
+  var payTxt = R.n ? "💵 "+R.pay.cash+" · 💳 "+R.pay.carte+" · 🎟️ "+R.pay.coupon : "—";
+  $("statGrid").innerHTML =
+    tile("🚖 Courses", R.n) + tile("Brut moyen / course", money(R.n ? R.brut/R.n : 0)) +
+    tile("Pourboire moyen", money(R.n ? R.tips/R.n : 0)) + tile("📆 Jours travaillés", R.worked.length) +
+    tile("Vrai net moyen / jour", money(R.worked.length ? R.vrai/R.worked.length : 0)) +
+    tile("🏆 Meilleur jour", best ? fmtDay(best.date)+" · "+money(best.vrai) : "—") +
+    tile("⏳ Heures de course", R.hours > 0 ? R.hours.toFixed(1)+" h" : "—") +
+    tile("Répartition des paiements (nombre de courses)", payTxt);
+
+  var max = Math.max.apply(null, R.list.map(function(d){ return d.brut+d.tips; }).concat([1]));
+  $("chart").innerHTML = R.list.filter(function(d){return d.n>0;}).length ? R.list.filter(function(d){return d.n>0;}).map(function(d){
+    var v = d.brut+d.tips;
+    return '<div class="bar" title="'+fmtDay(d.date)+' : '+money(v)+'"><em>'+Math.round(v)+'</em><i style="height:'+Math.max(2, v/max*100)+'px"></i><span>'+fromYmd(d.date).getDate()+'</span></div>';
+  }).join("") : '<div class="empty" style="width:100%">Aucune course sur cette période.</div>';
+
+  $("dayBody").innerHTML = R.list.map(function(d){
+    var h = d.span > 0 ? ((d.brut+d.tips)/d.span).toFixed(2) : "—";
+    return '<tr><td>'+fmtDay(d.date)+'</td><td>'+d.n+'</td><td>'+money(d.brut+d.tips)+'</td><td>'+money(d.dep)+'</td><td class="'+(d.vrai<0?"neg":"")+'">'+money(d.vrai)+'</td><td>'+h+'</td></tr>';
+  }).join("") || '<tr><td colspan="6" class="empty" style="text-align:center">Aucune donnée.</td></tr>';
+
+  renderHist(list);
+}
+
+function renderHist(list){
+  var f = $("filter").value;
+  var rows = list.filter(function(e){
+    if(f === "all") return true;
+    if(f === "course" || f === "depense") return e.type === f;
+    return e.type === "course" && e.pay === f;
+  }).sort(function(a,b){ return (b.date+(b.time||"")).localeCompare(a.date+(a.time||"")); });
+  $("hist").innerHTML = rows.length ? rows.map(function(e){
+    var title, meta;
+    if(e.type === "depense"){ title = (CATS[e.cat]||e.cat)+" · −"+money(e.brut); meta = fmtDay(e.date); }
+    else {
+      title = PAYS[e.pay]+" · "+money(e.brut)+(e.tip ? " + "+money(e.tip)+" pourb." : "");
+      var tx = []; if(e.tps) tx.push("TPS "+money(e.tps)); if(e.tvq) tx.push("TVQ "+money(e.tvq)); if(e.red) tx.push("Red. "+money(e.red));
+      meta = fmtDay(e.date)+(e.time ? " · "+e.time : "")+(tx.length ? " · "+tx.join(" · ") : "");
+    }
+    return '<li><div class="main"><b>'+(e.type==="course"?"🚖 ":"💸 ")+title+'</b><small>'+meta+'</small></div>'+
+      '<button class="noprint" type="button" data-edit="'+e.id+'" aria-label="Modifier">✏️</button>'+
+      '<button class="noprint danger" type="button" data-del="'+e.id+'" aria-label="Supprimer">🗑️</button></li>';
+  }).join("") : '<li class="empty" style="display:block">Aucune entrée sur cette période.</li>';
+}
+
+/* ---------- calendrier ---------- */
+function renderCal(){
+  var first = new Date(viewY, viewM, 1);
+  $("monthLabel").textContent = first.toLocaleDateString("fr-CA",{month:"long",year:"numeric"});
+  var has = {}; entries.forEach(function(e){ has[e.date] = true; });
+  var h = ["L","M","M","J","V","S","D"].map(function(x){ return '<div class="dow">'+x+'</div>'; }).join("");
+  var lead = (first.getDay()+6)%7, days = new Date(viewY, viewM+1, 0).getDate(), t = todayStr();
+  for(var i=0;i<lead;i++) h += '<button class="blank" type="button" tabindex="-1" aria-hidden="true"></button>';
+  for(var d=1; d<=days; d++){
+    var s = viewY+"-"+pad(viewM+1)+"-"+pad(d), c = [];
+    if(s === start || s === end) c.push("edge"); else if(s > start && s < end) c.push("inr");
+    if(s === t) c.push("today"); if(has[s]) c.push("has");
+    h += '<button type="button" class="'+c.join(" ")+'" data-d="'+s+'">'+d+'</button>';
+  }
+  $("cal").innerHTML = h;
+}
+
+/* ---------- formulaire ---------- */
+function toggleType(){
+  var dep = $("type").value === "depense";
+  $("fPay").hidden = dep; $("fTip").hidden = dep; $("fTax").hidden = dep; $("fTime").hidden = dep; $("fCat").hidden = !dep;
+  $("brutLabel").textContent = dep ? "Montant $" : "Montant brut $";
+  $("edateLabel").textContent = dep ? "Date de la dépense" : "Date de la course";
+}
+function resetForm(){
+  editingId = null;
+  $("form").reset(); $("type").value = "course"; toggleType();
+  $("edate").value = end || todayStr(); $("etime").value = nowTime();
+  $("formTitle").textContent = "➕ Nouvelle entrée"; $("formMsg").textContent = "";
+}
+function num(id){ var v = parseFloat($(id).value); return isNaN(v) ? 0 : Math.round(v*100)/100; }
+function sig(e){ return [e.type,e.date,e.time||"",e.pay||e.cat||"",(+e.brut).toFixed(2),(+(e.tip||0)).toFixed(2)].join("|"); }
+
+$("type").addEventListener("change", toggleType);
+$("cancel").addEventListener("click", resetForm);
+$("form").addEventListener("submit", function(ev){
+  ev.preventDefault();
+  var type = $("type").value, brut = num("brut");
+  if(!(brut > 0)){ $("formMsg").innerHTML = '<span class="neg">Entre un montant plus grand que 0.</span>'; return; }
+  if(!$("edate").value){ $("formMsg").innerHTML = '<span class="neg">Choisis une date.</span>'; return; }
+  var e = {id: editingId || uid(), type:type, date:$("edate").value, brut:brut};
+  if(type === "course"){
+    e.pay = $("pay").value; e.tip = num("tip"); e.tps = num("tps"); e.tvq = num("tvq"); e.red = num("red"); e.time = $("etime").value || "";
+  } else e.cat = $("cat").value;
+  if(editingId) entries = entries.map(function(x){ return x.id === editingId ? e : x; }); else entries.push(e);
+  save("mg_entries", entries);
+  if(e.date < start || e.date > end){ start = end = e.date; viewY = fromYmd(e.date).getFullYear(); viewM = fromYmd(e.date).getMonth(); }
+  var wasEdit = !!editingId;
+  resetForm(); $("formMsg").innerHTML = '<span class="pos">'+(wasEdit ? "Entrée modifiée." : "Entrée enregistrée.")+'</span>';
+  render();
+});
+
+/* ---------- historique : modifier / supprimer ---------- */
+var delArm = null;
+$("hist").addEventListener("click", function(ev){
+  var b = ev.target.closest("button"); if(!b) return;
+  if(b.dataset.edit){
+    var e = entries.filter(function(x){ return x.id === b.dataset.edit; })[0]; if(!e) return;
+    editingId = e.id; $("type").value = e.type; toggleType();
+    $("brut").value = e.brut; $("edate").value = e.date;
+    if(e.type === "course"){ $("pay").value = e.pay; $("tip").value = e.tip||""; $("tps").value = e.tps||""; $("tvq").value = e.tvq||""; $("red").value = e.red||""; $("etime").value = e.time||""; }
+    else $("cat").value = e.cat;
+    $("formTitle").textContent = "✏️ Modifier l'entrée";
+    $("sec-new").scrollIntoView({behavior:"smooth"});
+  } else if(b.dataset.del){
+    if(delArm === b.dataset.del){
+      entries = entries.filter(function(x){ return x.id !== b.dataset.del; }); save("mg_entries", entries); delArm = null; render();
+    } else { delArm = b.dataset.del; b.textContent = "Confirmer ?"; setTimeout(function(){ if(delArm === b.dataset.del){ delArm = null; if(b.isConnected) b.textContent = "🗑️"; } }, 3000); }
+  }
+});
+$("filter").addEventListener("change", render);
+$("print").addEventListener("click", function(){ window.print(); });
+
+/* ---------- paramètres et période ---------- */
+$("rate").addEventListener("input", function(){ var v = parseFloat(this.value); settings.rate = isNaN(v) ? 0 : v; save("mg_settings", settings); render(); });
+$("rule").addEventListener("change", function(){ settings.rule = this.value; save("mg_settings", settings); render(); });
+$("goal").addEventListener("input", function(){ var v = parseFloat(this.value); settings.goal = isNaN(v) ? 0 : v; save("mg_settings", settings); render(); });
+function applyInputs(){
+  var a = $("ds").value, b = $("de").value; if(!a && !b) return;
+  if(!a) a = b; if(!b) b = a; if(a > b){ var t = a; a = b; b = t; }
+  start = a; end = b; viewY = fromYmd(a).getFullYear(); viewM = fromYmd(a).getMonth(); pending = false; render();
+}
+$("calc").addEventListener("click", applyInputs);
+$("ds").addEventListener("change", applyInputs); $("de").addEventListener("change", applyInputs);
+$("today").addEventListener("click", function(){ start = end = todayStr(); var d = new Date(); viewY = d.getFullYear(); viewM = d.getMonth(); pending = false; render(); });
+$("all").addEventListener("click", function(){
+  if(!entries.length) return;
+  var ds = entries.map(function(e){ return e.date; }).sort(); start = ds[0]; end = ds[ds.length-1]; pending = false; render();
+});
+$("prev").addEventListener("click", function(){ viewM--; if(viewM < 0){ viewM = 11; viewY--; } renderCal(); });
+$("next").addEventListener("click", function(){ viewM++; if(viewM > 11){ viewM = 0; viewY++; } renderCal(); });
+$("cal").addEventListener("click", function(ev){
+  var b = ev.target.closest("button[data-d]"); if(!b) return;
+  var s = b.dataset.d;
+  if(!pending){ start = end = s; pending = true; }
+  else { if(s < start){ end = start; start = s; } else end = s; pending = false; }
+  render();
+});
+
+/* ---------- import CSV / Excel ---------- */
+var parsed = {valid:[], rejected:[]};
+
+function parseCSV(text){
+  text = text.replace(/^﻿/, "");
+  var first = text.split(/\r?\n/)[0] || "";
+  var delim = [";","\t",","].map(function(d){ return [d, first.split(d).length]; }).sort(function(a,b){ return b[1]-a[1]; })[0][0];
+  var rows = [], row = [], cur = "", q = false;
+  for(var i=0;i<text.length;i++){
+    var c = text[i];
+    if(q){ if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; } else cur += c; }
+    else if(c === '"') q = true;
+    else if(c === delim){ row.push(cur); cur = ""; }
+    else if(c === "\n" || c === "\r"){ if(c === "\r" && text[i+1] === "\n") i++; row.push(cur); rows.push(row); row = []; cur = ""; }
+    else cur += c;
+  }
+  if(cur !== "" || row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function norm(s){ return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^a-z0-9]/g,""); }
+function fieldOf(h){
+  if(h.indexOf("pourb") >= 0 || h === "tip" || h === "tips") return "tip";
+  if(h.indexOf("tps") >= 0) return "tps";
+  if(h.indexOf("tvq") >= 0) return "tvq";
+  if(h.indexOf("redev") >= 0) return "red";
+  if(h.indexOf("heure") >= 0 || h === "time" || h === "hrs") return "time";
+  if(h.indexOf("date") >= 0 || h === "jour") return "date";
+  if(h.indexOf("paiement") >= 0 || h.indexOf("mode") >= 0 || h.indexOf("payment") >= 0) return "pay";
+  if(h.indexOf("montant") >= 0 || h.indexOf("brut") >= 0 || h.indexOf("prix") >= 0 || h.indexOf("tarif") >= 0 || h === "total") return "brut";
+  return null;
+}
+function parseNum(v){
+  if(typeof v === "number") return isFinite(v) ? v : null;
+  var s = String(v == null ? "" : v).replace(/[\s $]/g,"");
+  if(s === "") return null;
+  if(s.indexOf(",") >= 0 && s.indexOf(".") < 0) s = s.replace(",", "."); else s = s.replace(/,/g, "");
+  var n = parseFloat(s); return isNaN(n) ? null : n;
+}
+function serialToParts(n){
+  var days = Math.floor(n), frac = n - days;
+  var d = new Date(Date.UTC(1899,11,30) + days*86400000);
+  var mins = Math.round(frac*1440);
+  return {date: d.getUTCFullYear()+"-"+pad(d.getUTCMonth()+1)+"-"+pad(d.getUTCDate()), time: frac > 0 ? pad(Math.floor(mins/60)%24)+":"+pad(mins%60) : ""};
+}
+function parseDate(v){
+  if(v instanceof Date && !isNaN(v)) return {date: ymd(v), time: ""};
+  if(typeof v === "number" && v > 20000) return serialToParts(v);
+  var s = String(v == null ? "" : v).trim(), m;
+  if((m = /^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s))) return {date: m[1]+"-"+pad(+m[2])+"-"+pad(+m[3]), time: m[4] ? pad(+m[4])+":"+m[5] : ""};
+  if((m = /^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})(?:[ T](\d{1,2}):(\d{2}))?/.exec(s))) return {date: m[3]+"-"+pad(+m[2])+"-"+pad(+m[1]), time: m[4] ? pad(+m[4])+":"+m[5] : ""};
+  return null;
+}
+function parseTime(v){
+  if(v instanceof Date && !isNaN(v)) return pad(v.getHours())+":"+pad(v.getMinutes());
+  if(typeof v === "number"){ if(v >= 0 && v < 1){ var m = Math.round(v*1440); return pad(Math.floor(m/60)%24)+":"+pad(m%60); } return null; }
+  var s = String(v == null ? "" : v).trim(); if(s === "") return "";
+  var x = /^(\d{1,2})\s*[:hH]\s*(\d{2})?/.exec(s);
+  if(!x) return null;
+  var h = +x[1], mi = x[2] ? +x[2] : 0;
+  if(h > 23 || mi > 59) return null;
+  return pad(h)+":"+pad(mi);
+}
+function parsePay(v){
+  var s = norm(v);
+  if(/cash|comptant|espece|argent/.test(s)) return "cash";
+  if(/carte|card|credit|debit|visa|master|interac/.test(s)) return "carte";
+  if(/coupon|bon|voucher/.test(s)) return "coupon";
+  return null;
+}
+function parseRows(rows){
+  var out = {valid:[], rejected:[]}, map = {}, hi = -1;
+  for(var i=0; i<Math.min(rows.length, 10); i++){
+    var found = 0, m = {};
+    rows[i].forEach(function(c, j){ var f = fieldOf(norm(c)); if(f && m[f] === undefined){ m[f] = j; found++; } });
+    if(found >= 2 && m.brut !== undefined || found >= 3){ map = m; hi = i; break; }
+  }
+  if(hi < 0) map = {date:0,time:1,brut:2,pay:3,tip:4};
+  var seen = {}; entries.forEach(function(e){ seen[sig(e)] = true; });
+  rows.forEach(function(r, i){
+    if(i <= hi) return;
+    if(r.every(function(c){ return String(c).trim() === ""; })) return;
+    var line = i+1, g = function(f){ return map[f] === undefined ? "" : r[map[f]]; };
+    var dp = parseDate(g("date"));
+    if(!dp) return out.rejected.push({line:line, why:"date illisible"});
+    var brut = parseNum(g("brut"));
+    if(brut === null || brut <= 0) return out.rejected.push({line:line, why:"montant brut manquant ou invalide"});
+    var pay = parsePay(g("pay"));
+    if(!pay) return out.rejected.push({line:line, why:"mode de paiement inconnu (cash, carte ou coupon)"});
+    var tm = parseTime(g("time"));
+    if(tm === null) return out.rejected.push({line:line, why:"heure illisible"});
+    var tip = parseNum(g("tip")); if(tip === null) tip = 0;
+    if(tip < 0) return out.rejected.push({line:line, why:"pourboire négatif"});
+    var e = {id:uid(), type:"course", date:dp.date, time: tm || dp.time || "", pay:pay, brut:Math.round(brut*100)/100, tip:Math.round(tip*100)/100,
+      tps: parseNum(g("tps"))||0, tvq: parseNum(g("tvq"))||0, red: parseNum(g("red"))||0};
+    var s = sig(e);
+    if(seen[s]) return out.rejected.push({line:line, why:"doublon déjà présent"});
+    seen[s] = true; out.valid.push(e);
+  });
+  return out;
+}
+function showImport(res, name){
+  parsed = res;
+  var h = "<b>"+name+"</b> : "+res.valid.length+" ligne(s) valide(s), "+res.rejected.length+" refusée(s).";
+  if(res.rejected.length){
+    h += "<ul>"+res.rejected.slice(0,12).map(function(r){ return "<li>Ligne "+r.line+" : "+r.why+"</li>"; }).join("")+
+      (res.rejected.length > 12 ? "<li>… et "+(res.rejected.length-12)+" autres</li>" : "")+"</ul>";
+  }
+  $("importMsg").innerHTML = h; $("doImport").disabled = !res.valid.length;
+}
+$("file").addEventListener("change", function(){
+  var f = this.files[0]; if(!f) return;
+  $("doImport").disabled = true; $("importMsg").textContent = "Lecture du fichier…";
+  var ext = (f.name.split(".").pop()||"").toLowerCase();
+  var done = function(rows){ showImport(parseRows(rows), f.name); };
+  var fail = function(m){ $("importMsg").innerHTML = '<span class="neg">'+m+'</span>'; };
+  if(ext === "csv" || ext === "txt"){
+    var r = new FileReader(); r.onload = function(){ done(parseCSV(String(r.result))); }; r.onerror = function(){ fail("Impossible de lire le fichier."); }; r.readAsText(f);
+  } else {
+    if(typeof XLSX === "undefined"){ fail("La bibliothèque Excel n'a pas pu se charger (connexion requise). Enregistre ton fichier en .csv et réessaie."); return; }
+    var r2 = new FileReader();
+    r2.onload = function(){
+      try{
+        var wb = XLSX.read(new Uint8Array(r2.result), {type:"array"}), rows = [];
+        for(var i=0;i<wb.SheetNames.length && !rows.length;i++){
+          var x = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[i]], {header:1, raw:true, defval:""});
+          if(x.length) rows = x;
+        }
+        done(rows);
+      }catch(err){ fail("Fichier Excel illisible."); }
+    };
+    r2.onerror = function(){ fail("Impossible de lire le fichier."); };
+    r2.readAsArrayBuffer(f);
+  }
+});
+$("doImport").addEventListener("click", function(){
+  if(!parsed.valid.length) return;
+  var n = parsed.valid.length, ds = parsed.valid.map(function(e){ return e.date; }).sort();
+  entries = entries.concat(parsed.valid); save("mg_entries", entries);
+  start = ds[0]; end = ds[ds.length-1]; viewY = fromYmd(start).getFullYear(); viewM = fromYmd(start).getMonth();
+  parsed = {valid:[], rejected:[]}; $("doImport").disabled = true; $("file").value = "";
+  $("importMsg").innerHTML = '<span class="pos">'+n+' course(s) importée(s). Période ajustée du '+fmtDay(start)+' au '+fmtDay(end)+'.</span>';
+  render();
+});
+
+/* ---------- téléchargements ---------- */
+function download(name, text, type){
+  try{
+    var url = URL.createObjectURL(new Blob([text], {type:type}));
+    var a = document.createElement("a"); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+    return true;
+  }catch(e){ return false; }
+}
+$("tpl").addEventListener("click", function(){
+  var t = "date;heure;montant brut;paiement;pourboire;tps;tvq;redevance\n"+
+    todayStr()+";08:15;18,50;cash;2,00;0;0;0\n"+todayStr()+";09:40;32,75;carte;4,00;0;0;0\n"+todayStr()+";11:05;24,00;coupon;0;0;0;0\n";
+  download("modele-courses.csv", "﻿"+t, "text/csv;charset=utf-8");
+});
+$("bk").addEventListener("click", function(){
+  var ok = download("mygain-sauvegarde-"+todayStr()+".json", JSON.stringify({app:"mygain",version:1,entries:entries,settings:settings}, null, 1), "application/json");
+  $("bkMsg").innerHTML = ok ? '<span class="pos">Sauvegarde créée ('+entries.length+' entrées).</span>' : '<span class="neg">Téléchargement impossible dans cet affichage.</span>';
+});
+$("rs").addEventListener("click", function(){ $("rsFile").click(); });
+$("rsFile").addEventListener("change", function(){
+  var f = this.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var j = JSON.parse(String(r.result)); if(!j || !Array.isArray(j.entries)) throw new Error("format");
+      var seen = {}; entries.forEach(function(e){ seen[sig(e)] = true; });
+      var add = 0;
+      j.entries.forEach(function(e){
+        if(!e || !e.date || !(e.brut > 0) || (e.type !== "course" && e.type !== "depense")) return;
+        if(seen[sig(e)]) return; seen[sig(e)] = true; e.id = e.id || uid(); entries.push(e); add++;
+      });
+      save("mg_entries", entries);
+      $("bkMsg").innerHTML = '<span class="pos">'+add+' entrée(s) ajoutée(s), doublons ignorés.</span>'; render();
+    }catch(err){ $("bkMsg").innerHTML = '<span class="neg">Fichier de sauvegarde invalide.</span>'; }
+  };
+  r.readAsText(f); this.value = "";
+});
+$("ex").addEventListener("click", function(){
+  var rows = entries.filter(inPeriod).sort(function(a,b){ return (a.date+(a.time||"")).localeCompare(b.date+(b.time||"")); });
+  var n = function(v){ return String(Math.round((v||0)*100)/100).replace(".", ","); };
+  var csv = "type;date;heure;paiement;categorie;montant;pourboire;tps;tvq;redevance\n"+rows.map(function(e){
+    return [e.type, e.date, e.time||"", e.pay||"", e.cat||"", n(e.brut), n(e.tip), n(e.tps), n(e.tvq), n(e.red)].join(";");
+  }).join("\n");
+  var ok = download("mygain-"+start+"_"+end+".csv", "﻿"+csv, "text/csv;charset=utf-8");
+  $("bkMsg").innerHTML = ok ? '<span class="pos">'+rows.length+' ligne(s) exportée(s).</span>' : '<span class="neg">Téléchargement impossible dans cet affichage.</span>';
+});
+
+/* ---------- démarrage ---------- */
+toggleType(); resetForm(); render();
+</script>
+</body>
+</html>
